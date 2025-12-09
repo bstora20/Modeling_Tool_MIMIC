@@ -1,0 +1,131 @@
+# Synchronous Leader Election
+# 4 nodes with values 1, 3, 5, 8
+# Connections: 1->3, 3->5, 3->8, 5->1, 5->3, 8->1
+# Each round, nodes send their current max value to neighbors
+# Leader is the node with the highest value (should be 8)
+
+component:
+  name: SynchronousLeaderElection
+  type: synchronous
+  
+  state:
+    # Node values
+    node_1_value: 1
+    node_3_value: 3
+    node_5_value: 5
+    node_8_value: 8
+    
+    # Current max known by each node
+    node_1_max: 1
+    node_3_max: 3
+    node_5_max: 5
+    node_8_max: 8
+    
+    # Messages in transit (from -> to -> value)
+    messages: []
+    
+    # Leader election status
+    leader: null
+    election_complete: false
+    round: 0
+  
+  inputs: []
+  
+  outputs:
+    - leader
+    - round_number
+    - node_states
+  
+  tasks:
+    # Task 1: Each node sends its current max to its neighbors
+    - name: send_messages
+      code: |
+        state.round += 1
+        print(f"\n=== Round {state.round} ===")
+        print(f"Node states: 1={state.node_1_max}, 3={state.node_3_max}, 5={state.node_5_max}, 8={state.node_8_max}")
+        
+        # Clear old messages
+        state.messages = []
+        
+        # Node 1 sends to 3
+        state.messages.append({'from': 1, 'to': 3, 'value': state.node_1_max})
+        print(f"Node 1 -> Node 3: {state.node_1_max}")
+        
+        # Node 3 sends to 5 and 8
+        state.messages.append({'from': 3, 'to': 5, 'value': state.node_3_max})
+        state.messages.append({'from': 3, 'to': 8, 'value': state.node_3_max})
+        print(f"Node 3 -> Node 5: {state.node_3_max}")
+        print(f"Node 3 -> Node 8: {state.node_3_max}")
+        
+        # Node 5 sends to 1 and 3
+        state.messages.append({'from': 5, 'to': 1, 'value': state.node_5_max})
+        state.messages.append({'from': 5, 'to': 3, 'value': state.node_5_max})
+        print(f"Node 5 -> Node 1: {state.node_5_max}")
+        print(f"Node 5 -> Node 3: {state.node_5_max}")
+        
+        # Node 8 sends to 1
+        state.messages.append({'from': 8, 'to': 1, 'value': state.node_8_max})
+        print(f"Node 8 -> Node 1: {state.node_8_max}")
+    
+    # Task 2: Each node receives messages and updates its max
+    - name: receive_messages
+      depends_on: [send_messages]
+      code: |
+        # Track if any node updated its max
+        updated = False
+        
+        # Process messages for each node
+        for msg in state.messages:
+            if msg['to'] == 1:
+                if msg['value'] > state.node_1_max:
+                    print(f"Node 1 updated: {state.node_1_max} -> {msg['value']}")
+                    state.node_1_max = msg['value']
+                    updated = True
+            elif msg['to'] == 3:
+                if msg['value'] > state.node_3_max:
+                    print(f"Node 3 updated: {state.node_3_max} -> {msg['value']}")
+                    state.node_3_max = msg['value']
+                    updated = True
+            elif msg['to'] == 5:
+                if msg['value'] > state.node_5_max:
+                    print(f"Node 5 updated: {state.node_5_max} -> {msg['value']}")
+                    state.node_5_max = msg['value']
+                    updated = True
+            elif msg['to'] == 8:
+                if msg['value'] > state.node_8_max:
+                    print(f"Node 8 updated: {state.node_8_max} -> {msg['value']}")
+                    state.node_8_max = msg['value']
+                    updated = True
+        
+        if not updated:
+            print("No updates this round")
+    
+    # Task 3: Check if election is complete
+    - name: check_completion
+      depends_on: [receive_messages]
+      code: |
+        # Election is complete when all nodes know the same max value
+        max_val = max(state.node_1_max, state.node_3_max, state.node_5_max, state.node_8_max)
+        
+        if (state.node_1_max == max_val and 
+            state.node_3_max == max_val and 
+            state.node_5_max == max_val and 
+            state.node_8_max == max_val):
+            state.election_complete = True
+            state.leader = max_val
+            print(f"\n*** ELECTION COMPLETE ***")
+            print(f"Leader elected: Node {state.leader}")
+            print(f"Completed in {state.round} rounds")
+    
+    # Task 4: Update outputs
+    - name: update_outputs
+      depends_on: [check_completion]
+      code: |
+        outputs.leader = state.leader
+        outputs.round_number = state.round
+        outputs.node_states = {
+            'node_1': state.node_1_max,
+            'node_3': state.node_3_max,
+            'node_5': state.node_5_max,
+            'node_8': state.node_8_max
+        }

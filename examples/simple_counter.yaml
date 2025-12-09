@@ -1,0 +1,18 @@
+component:
+    name: Counter
+    type: synchronous
+    
+    state:
+        total: 0
+    
+    inputs:
+        - increment
+    
+    outputs:
+        - running_total
+    
+    tasks:
+        - name: update
+          code: |
+                state.total += inputs.increment
+                outputs.running_total = state.total

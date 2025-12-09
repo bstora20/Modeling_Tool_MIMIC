@@ -1,0 +1,78 @@
+# Synchronous Merge - Simple interleaving merge algorithm
+# Merges two lists by alternating between them based on index availability
+
+component:
+  name: SynchronousMerge
+  type: synchronous
+  
+  state:
+    list_a: [1, 3, 5, 7, 9]
+    list_b: [2, 4, 6, 8, 10]
+    result: []
+    index_a: 0
+    index_b: 0
+    next_action: "start"  # Can be: "a", "b", or "done"
+    steps: 0
+  
+  inputs: []
+  
+  outputs:
+    - merged_list
+    - step_count
+    - status
+  
+  tasks:
+    # Task 1: Decide which list to take from based on remaining elements
+    - name: decide_action
+      code: |
+        a_remaining = len(state.list_a) - state.index_a
+        b_remaining = len(state.list_b) - state.index_b
+        
+        # Check if we're done
+        if a_remaining == 0 and b_remaining == 0:
+            state.next_action = "done"
+            print(f"Step {state.steps}: Decision -> DONE (both lists exhausted)")
+        
+        # If both lists have elements, alternate
+        elif a_remaining >= b_remaining:
+            state.next_action = "a"
+            print(f"Step {state.steps + 1}: Decision -> Take from A")
+        else:
+            state.next_action = "b"
+            print(f"Step {state.steps + 1}: Decision -> Take from B")
+        
+    # Task 2: Take from list A if decided
+    - name: take_from_a
+      depends_on: [decide_action]
+      code: |
+        if state.next_action == "a":
+            value = state.list_a[state.index_a]
+            state.result.append(value)
+            state.index_a += 1
+            state.steps += 1
+            print(f"  -> Took {value} from list A")
+    
+    # Task 3: Take from list B if decided
+    - name: take_from_b
+      depends_on: [decide_action]
+      code: |
+        if state.next_action == "b":
+            value = state.list_b[state.index_b]
+            state.result.append(value)
+            state.index_b += 1
+            state.steps += 1
+            print(f"  -> Took {value} from list B")
+    
+    # Task 4: Finalize if done
+    - name: finalize
+      depends_on: [take_from_a, take_from_b]
+      code: |
+        if state.next_action == "done":
+            outputs.status = "completed"
+            print(f"\nMerge completed in {state.steps} steps")
+            print(f"Final result: {state.result}")
+        else:
+            outputs.status = "in_progress"
+        
+        outputs.merged_list = state.result.copy()
+        outputs.step_count = state.steps

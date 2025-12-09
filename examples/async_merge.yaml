@@ -1,0 +1,99 @@
+# Asynchronous Merge - Event-driven merge with parallel task execution
+# Two tasks compete to process elements, creating non-deterministic ordering
+
+component:
+  name: AsynchronousMerge
+  type: asynchronous
+  
+  state:
+    list_a: [1, 3, 5, 7, 9]
+    list_b: [2, 4, 6, 8, 10]
+    result: []
+    index_a: 0
+    index_b: 0
+    completed: false
+    steps: 0
+  
+  inputs: []
+  
+  outputs:
+    - merged_list
+    - step_count
+    - status
+  
+  tasks:
+    - name: start_merge
+      trigger:
+        type: immediate
+      code: |
+        # Kick off the merge process
+        emit_event("merge_step", delay=0.0)
+    
+    - name: take_from_a
+      trigger:
+        type: event
+        event: merge_step
+      code: |
+        # Check if we can take from list A
+        if state.index_a < len(state.list_a) and not state.completed:
+            value = state.list_a[state.index_a]
+            state.result.append(value)
+            state.index_a += 1
+            state.steps += 1
+            
+            print(f"[{current_time:.1f}s] Step {state.steps}: Task A took {value} from list A")
+            
+            # Update outputs
+            outputs.merged_list = state.result.copy()
+            outputs.step_count = state.steps
+            outputs.status = "in_progress"
+            
+            # Check if both lists are exhausted
+            if state.index_a >= len(state.list_a) and state.index_b >= len(state.list_b):
+                state.completed = True
+                outputs.status = "completed"
+                print(f"[{current_time:.1f}s] Merge completed in {state.steps} steps")
+                print(f"  Result: {state.result}")
+                emit_event("merge_complete", delay=0.0)
+            else:
+                # Continue merging
+                emit_event("merge_step", delay=0.1)
+    
+    - name: take_from_b
+      trigger:
+        type: event
+        event: merge_step
+      code: |
+        # Check if we can take from list B
+        if state.index_b < len(state.list_b) and not state.completed:
+            value = state.list_b[state.index_b]
+            state.result.append(value)
+            state.index_b += 1
+            state.steps += 1
+            
+            print(f"[{current_time:.1f}s] Step {state.steps}: Task B took {value} from list B")
+            
+            # Update outputs
+            outputs.merged_list = state.result.copy()
+            outputs.step_count = state.steps
+            outputs.status = "in_progress"
+            
+            # Check if both lists are exhausted
+            if state.index_a >= len(state.list_a) and state.index_b >= len(state.list_b):
+                state.completed = True
+                outputs.status = "completed"
+                print(f"[{current_time:.1f}s] Merge completed in {state.steps} steps")
+                print(f"  Result: {state.result}")
+                emit_event("merge_complete", delay=0.0)
+            else:
+                # Continue merging
+                emit_event("merge_step", delay=0.1)
+    
+    - name: finalize
+      trigger:
+        type: event
+        event: merge_complete
+      code: |
+        print(f"[{current_time:.1f}s] Merge finalized")
+        print(f"  Final merged list: {state.result}")
+        print(f"  Total steps: {state.steps}")

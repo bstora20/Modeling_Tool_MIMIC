@@ -1,0 +1,50 @@
+component:
+    name: TemperatureMonitor
+    type: asynchronous
+    
+    state:
+        temperature: 20.0
+        alert_count: 0
+        readings: []
+        tick_count: 0
+        
+    inputs: []
+    
+    outputs:
+        - status
+        - alerts
+        - total_readings
+        
+    tasks:
+        - name: read_sensor
+          trigger:
+                type: periodic
+                interval: 2.0
+          code: |
+                #Simulate reading temperature (random between 18-32)
+                import random
+                state.temperature = random.uniform(18.0, 32.0)
+                state.readings.append(state.temperature)
+                state.tick_count +=1
+                print(f"[{current_time:.1f}s] Reading {state.tick_count}: {state.temperature:.1f}°C")
+                emit_event("check_threshold")
+                
+        - name: check_threshold
+          trigger:
+                type: event
+                event: check_threshold
+          code: |
+                if state.temperature >25.0:
+                    state.alert_count +=1
+                    outputs.status = "HOT"
+                    outputs.alerts = state.alert_count
+                    emit_event("alert")
+                else:
+                    outputs.status = "normal"
+                    
+        - name: log_alert
+          trigger:
+                type: event
+                event: alert
+          code: |
+            print(f"ALERT at {current_time}s: Temp {state.temperature:.1f}°C")

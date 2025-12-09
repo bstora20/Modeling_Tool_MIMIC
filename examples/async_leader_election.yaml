@@ -1,0 +1,193 @@
+# Asynchronous Leader Election (Event-Driven)
+# 4 nodes with values 1, 3, 5, 8
+# Connections: 1->3, 3->5, 3->8, 5->1, 5->3, 8->1
+# Nodes send messages asynchronously when they update their max value
+# Leader is the node with the highest value (should be 8)
+
+component:
+  name: AsynchronousLeaderElection
+  type: asynchronous
+  
+  state:
+    # Node values (original IDs)
+    node_1_value: 1
+    node_3_value: 3
+    node_5_value: 5
+    node_8_value: 8
+    
+    # Current max known by each node
+    node_1_max: 1
+    node_3_max: 3
+    node_5_max: 5
+    node_8_max: 8
+    
+    # Leader election status
+    leader: null
+    election_complete: false
+    messages_sent: 0
+  
+  inputs: []
+  
+  outputs:
+    - leader
+    - messages_sent
+    - node_states
+  
+  tasks:
+    # Initialize: Each node sends its initial value to neighbors
+    - name: initialize
+      trigger:
+        type: immediate
+      code: |
+        print(f"[{current_time:.2f}s] Initializing election")
+        print(f"Initial states: 1={state.node_1_max}, 3={state.node_3_max}, 5={state.node_5_max}, 8={state.node_8_max}")
+        
+        # Each node sends its initial value
+        emit_event("send_from_1", delay=0.1)
+        emit_event("send_from_3", delay=0.15)
+        emit_event("send_from_5", delay=0.12)
+        emit_event("send_from_8", delay=0.18)
+    
+    # Node 1 sends to its neighbors (3)
+    - name: send_from_1
+      trigger:
+        type: event
+        event: send_from_1
+      code: |
+        print(f"[{current_time:.2f}s] Node 1 -> Node 3: {state.node_1_max}")
+        emit_event("receive_at_3", data={'value': state.node_1_max, 'from': 1}, delay=0.05)
+        state.messages_sent += 1
+    
+    # Node 3 sends to its neighbors (5, 8)
+    - name: send_from_3
+      trigger:
+        type: event
+        event: send_from_3
+      code: |
+        print(f"[{current_time:.2f}s] Node 3 -> Node 5: {state.node_3_max}")
+        print(f"[{current_time:.2f}s] Node 3 -> Node 8: {state.node_3_max}")
+        emit_event("receive_at_5", data={'value': state.node_3_max, 'from': 3}, delay=0.05)
+        emit_event("receive_at_8", data={'value': state.node_3_max, 'from': 3}, delay=0.05)
+        state.messages_sent += 2
+    
+    # Node 5 sends to its neighbors (1, 3)
+    - name: send_from_5
+      trigger:
+        type: event
+        event: send_from_5
+      code: |
+        print(f"[{current_time:.2f}s] Node 5 -> Node 1: {state.node_5_max}")
+        print(f"[{current_time:.2f}s] Node 5 -> Node 3: {state.node_5_max}")
+        emit_event("receive_at_1", data={'value': state.node_5_max, 'from': 5}, delay=0.05)
+        emit_event("receive_at_3", data={'value': state.node_5_max, 'from': 5}, delay=0.05)
+        state.messages_sent += 2
+    
+    # Node 8 sends to its neighbors (1)
+    - name: send_from_8
+      trigger:
+        type: event
+        event: send_from_8
+      code: |
+        print(f"[{current_time:.2f}s] Node 8 -> Node 1: {state.node_8_max}")
+        emit_event("receive_at_1", data={'value': state.node_8_max, 'from': 8}, delay=0.05)
+        state.messages_sent += 1
+    
+    # Node 1 receives a message
+    - name: receive_at_1
+      trigger:
+        type: event
+        event: receive_at_1
+      code: |
+        if event_data and isinstance(event_data, dict):
+            value = event_data.get('value')
+            sender = event_data.get('from')
+            
+            if value is not None and value > state.node_1_max:
+                print(f"[{current_time:.2f}s] Node 1 updated: {state.node_1_max} -> {value} (from Node {sender})")
+                state.node_1_max = value
+                # Send updated value to neighbors
+                emit_event("send_from_1", delay=0.1)
+        
+        emit_event("check_completion", delay=0.01)
+    
+    # Node 3 receives a message
+    - name: receive_at_3
+      trigger:
+        type: event
+        event: receive_at_3
+      code: |
+        if event_data and isinstance(event_data, dict):
+            value = event_data.get('value')
+            sender = event_data.get('from')
+            
+            if value is not None and value > state.node_3_max:
+                print(f"[{current_time:.2f}s] Node 3 updated: {state.node_3_max} -> {value} (from Node {sender})")
+                state.node_3_max = value
+                # Send updated value to neighbors
+                emit_event("send_from_3", delay=0.1)
+        
+        emit_event("check_completion", delay=0.01)
+    
+    # Node 5 receives a message
+    - name: receive_at_5
+      trigger:
+        type: event
+        event: receive_at_5
+      code: |
+        if event_data and isinstance(event_data, dict):
+            value = event_data.get('value')
+            sender = event_data.get('from')
+            
+            if value is not None and value > state.node_5_max:
+                print(f"[{current_time:.2f}s] Node 5 updated: {state.node_5_max} -> {value} (from Node {sender})")
+                state.node_5_max = value
+                # Send updated value to neighbors
+                emit_event("send_from_5", delay=0.1)
+        
+        emit_event("check_completion", delay=0.01)
+    
+    # Node 8 receives a message
+    - name: receive_at_8
+      trigger:
+        type: event
+        event: receive_at_8
+      code: |
+        if event_data and isinstance(event_data, dict):
+            value = event_data.get('value')
+            sender = event_data.get('from')
+            
+            if value is not None and value > state.node_8_max:
+                print(f"[{current_time:.2f}s] Node 8 updated: {state.node_8_max} -> {value} (from Node {sender})")
+                state.node_8_max = value
+                # Send updated value to neighbors
+                emit_event("send_from_8", delay=0.1)
+        
+        emit_event("check_completion", delay=0.01)
+    
+    # Check if election is complete
+    - name: check_completion
+      trigger:
+        type: event
+        event: check_completion
+      code: |
+        if not state.election_complete:
+            max_val = max(state.node_1_max, state.node_3_max, state.node_5_max, state.node_8_max)
+            
+            if (state.node_1_max == max_val and 
+                state.node_3_max == max_val and 
+                state.node_5_max == max_val and 
+                state.node_8_max == max_val):
+                state.election_complete = True
+                state.leader = max_val
+                print(f"\n[{current_time:.2f}s] *** ELECTION COMPLETE ***")
+                print(f"Leader elected: Node {state.leader}")
+                print(f"Total messages sent: {state.messages_sent}")
+                
+                outputs.leader = state.leader
+                outputs.messages_sent = state.messages_sent
+                outputs.node_states = {
+                    'node_1': state.node_1_max,
+                    'node_3': state.node_3_max,
+                    'node_5': state.node_5_max,
+                    'node_8': state.node_8_max
+                }

@@ -1,0 +1,21 @@
+component:
+    name: PeriodicLogger
+    type: asynchronous
+    
+    state:
+        tick_count: 0
+        
+    inputs: []
+    
+    outputs:
+        - ticks
+        
+    tasks:
+        - name: periodic_tick
+          trigger:
+                type: periodic
+                interval: 1.0
+          code: |
+                state.tick_count +=1
+                outputs.ticks = state.tick_count
+                print(f"{current_time:.1f}s Tick {state.tick_count}")
