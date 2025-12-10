@@ -61,7 +61,7 @@ source venv/bin/activate
 venv\Scripts\activate
 
 # Install Requirements
-pip install -r requirements.txt
+pip install -e .
 
 # Verify installation
 python -c "from modeling_tool import Executor; print('Installation successful')"
