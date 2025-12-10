@@ -21,10 +21,23 @@ component:
     node_5_max: 5
     node_8_max: 8
     
+    # Track if each node updated in the last check period
+    node_1_updated: false
+    node_3_updated: false
+    node_5_updated: false
+    node_8_updated: false
+    
+    # Node status (leader or follower)
+    node_1_status: "unknown"
+    node_3_status: "unknown"
+    node_5_status: "unknown"
+    node_8_status: "unknown"
+    
     # Leader election status
     leader: null
     election_complete: false
     messages_sent: 0
+    stability_checks: 0
   
   inputs: []
   
@@ -32,6 +45,7 @@ component:
     - leader
     - messages_sent
     - node_states
+    - node_statuses
   
   tasks:
     # Initialize: Each node sends its initial value to neighbors
@@ -47,6 +61,9 @@ component:
         emit_event("send_from_3", delay=0.15)
         emit_event("send_from_5", delay=0.12)
         emit_event("send_from_8", delay=0.18)
+        
+        # Start periodic stability checks
+        emit_event("stability_check", delay=1.0)
     
     # Node 1 sends to its neighbors (3)
     - name: send_from_1
@@ -98,15 +115,29 @@ component:
         type: event
         event: receive_at_1
       code: |
-        if event_data and isinstance(event_data, dict):
-            value = event_data.get('value')
-            sender = event_data.get('from')
+        # Extract value from event_data (handle double-wrapped data)
+        try:
+            if isinstance(event_data, dict):
+                # Check if data is double-wrapped
+                if 'value' in event_data and isinstance(event_data['value'], dict):
+                    data = event_data['value']
+                else:
+                    data = event_data
+                
+                value = data.get('value')
+                sender = data.get('from')
+            else:
+                value = None
+                sender = None
             
-            if value is not None and value > state.node_1_max:
+            if value is not None and isinstance(value, int) and value > state.node_1_max:
                 print(f"[{current_time:.2f}s] Node 1 updated: {state.node_1_max} -> {value} (from Node {sender})")
                 state.node_1_max = value
+                state.node_1_updated = True  # Mark that this node updated
                 # Send updated value to neighbors
                 emit_event("send_from_1", delay=0.1)
+        except Exception as e:
+            print(f"Error in receive_at_1: {e}, event_data type: {type(event_data)}, value: {event_data}")
         
         emit_event("check_completion", delay=0.01)
     
@@ -116,15 +147,29 @@ component:
         type: event
         event: receive_at_3
       code: |
-        if event_data and isinstance(event_data, dict):
-            value = event_data.get('value')
-            sender = event_data.get('from')
+        # Extract value from event_data (handle double-wrapped data)
+        try:
+            if isinstance(event_data, dict):
+                # Check if data is double-wrapped
+                if 'value' in event_data and isinstance(event_data['value'], dict):
+                    data = event_data['value']
+                else:
+                    data = event_data
+                
+                value = data.get('value')
+                sender = data.get('from')
+            else:
+                value = None
+                sender = None
             
-            if value is not None and value > state.node_3_max:
+            if value is not None and isinstance(value, int) and value > state.node_3_max:
                 print(f"[{current_time:.2f}s] Node 3 updated: {state.node_3_max} -> {value} (from Node {sender})")
                 state.node_3_max = value
+                state.node_3_updated = True  # Mark that this node updated
                 # Send updated value to neighbors
                 emit_event("send_from_3", delay=0.1)
+        except Exception as e:
+            print(f"Error in receive_at_3: {e}, event_data type: {type(event_data)}, value: {event_data}")
         
         emit_event("check_completion", delay=0.01)
     
@@ -134,15 +179,29 @@ component:
         type: event
         event: receive_at_5
       code: |
-        if event_data and isinstance(event_data, dict):
-            value = event_data.get('value')
-            sender = event_data.get('from')
+        # Extract value from event_data (handle double-wrapped data)
+        try:
+            if isinstance(event_data, dict):
+                # Check if data is double-wrapped
+                if 'value' in event_data and isinstance(event_data['value'], dict):
+                    data = event_data['value']
+                else:
+                    data = event_data
+                
+                value = data.get('value')
+                sender = data.get('from')
+            else:
+                value = None
+                sender = None
             
-            if value is not None and value > state.node_5_max:
+            if value is not None and isinstance(value, int) and value > state.node_5_max:
                 print(f"[{current_time:.2f}s] Node 5 updated: {state.node_5_max} -> {value} (from Node {sender})")
                 state.node_5_max = value
+                state.node_5_updated = True  # Mark that this node updated
                 # Send updated value to neighbors
                 emit_event("send_from_5", delay=0.1)
+        except Exception as e:
+            print(f"Error in receive_at_5: {e}, event_data type: {type(event_data)}, value: {event_data}")
         
         emit_event("check_completion", delay=0.01)
     
@@ -152,42 +211,97 @@ component:
         type: event
         event: receive_at_8
       code: |
-        if event_data and isinstance(event_data, dict):
-            value = event_data.get('value')
-            sender = event_data.get('from')
+        # Extract value from event_data (handle double-wrapped data)
+        try:
+            if isinstance(event_data, dict):
+                # Check if data is double-wrapped
+                if 'value' in event_data and isinstance(event_data['value'], dict):
+                    data = event_data['value']
+                else:
+                    data = event_data
+                
+                value = data.get('value')
+                sender = data.get('from')
+            else:
+                value = None
+                sender = None
             
-            if value is not None and value > state.node_8_max:
+            if value is not None and isinstance(value, int) and value > state.node_8_max:
                 print(f"[{current_time:.2f}s] Node 8 updated: {state.node_8_max} -> {value} (from Node {sender})")
                 state.node_8_max = value
+                state.node_8_updated = True  # Mark that this node updated
                 # Send updated value to neighbors
                 emit_event("send_from_8", delay=0.1)
+        except Exception as e:
+            print(f"Error in receive_at_8: {e}, event_data type: {type(event_data)}, value: {event_data}")
         
         emit_event("check_completion", delay=0.01)
     
-    # Check if election is complete
-    - name: check_completion
+    # Periodic stability check - if no nodes updated since last check, system is stable
+    - name: stability_check
       trigger:
         type: event
-        event: check_completion
+        event: stability_check
       code: |
         if not state.election_complete:
-            max_val = max(state.node_1_max, state.node_3_max, state.node_5_max, state.node_8_max)
+            state.stability_checks += 1
             
-            if (state.node_1_max == max_val and 
-                state.node_3_max == max_val and 
-                state.node_5_max == max_val and 
-                state.node_8_max == max_val):
-                state.election_complete = True
-                state.leader = max_val
-                print(f"\n[{current_time:.2f}s] *** ELECTION COMPLETE ***")
-                print(f"Leader elected: Node {state.leader}")
-                print(f"Total messages sent: {state.messages_sent}")
-                
-                outputs.leader = state.leader
-                outputs.messages_sent = state.messages_sent
-                outputs.node_states = {
-                    'node_1': state.node_1_max,
-                    'node_3': state.node_3_max,
-                    'node_5': state.node_5_max,
-                    'node_8': state.node_8_max
-                }
+            # Check if any node updated since last check
+            any_updates = (state.node_1_updated or state.node_3_updated or 
+                          state.node_5_updated or state.node_8_updated)
+            
+            if any_updates:
+                print(f"[{current_time:.2f}s] Stability check #{state.stability_checks}: Updates detected, continuing...")
+                # Reset update flags for next check
+                state.node_1_updated = False
+                state.node_3_updated = False
+                state.node_5_updated = False
+                state.node_8_updated = False
+                # Schedule next check
+                emit_event("stability_check", delay=1.0)
+            else:
+                # No updates detected - system is stable, election complete
+                print(f"[{current_time:.2f}s] Stability check #{state.stability_checks}: No updates - system stable!")
+                emit_event("finalize_election", delay=0.0)
+    
+    # Finalize election when stable state is detected
+    - name: finalize_election
+      trigger:
+        type: event
+        event: finalize_election
+      code: |
+        max_val = max(state.node_1_max, state.node_3_max, state.node_5_max, state.node_8_max)
+        
+        # Each node determines its own status
+        state.node_1_status = "leader" if state.node_1_value == max_val else "follower"
+        state.node_3_status = "leader" if state.node_3_value == max_val else "follower"
+        state.node_5_status = "leader" if state.node_5_value == max_val else "follower"
+        state.node_8_status = "leader" if state.node_8_value == max_val else "follower"
+        
+        state.election_complete = True
+        state.leader = max_val
+        
+        print(f"\n[{current_time:.2f}s] *** ELECTION COMPLETE ***")
+        print(f"Leader elected: Node {state.leader}")
+        print(f"Total messages sent: {state.messages_sent}")
+        print(f"Detected via stable state after {state.stability_checks} checks")
+        print(f"\nNode Statuses:")
+        print(f"  Node 1: {state.node_1_status} (knows max={state.node_1_max})")
+        print(f"  Node 3: {state.node_3_status} (knows max={state.node_3_max})")
+        print(f"  Node 5: {state.node_5_status} (knows max={state.node_5_max})")
+        print(f"  Node 8: {state.node_8_status} (knows max={state.node_8_max})")
+        
+        outputs.leader = state.leader
+        outputs.messages_sent = state.messages_sent
+        outputs.node_states = {
+            'node_1': state.node_1_max,
+            'node_3': state.node_3_max,
+            'node_5': state.node_5_max,
+            'node_8': state.node_8_max
+        }
+        outputs.node_statuses = {
+            'node_1': state.node_1_status,
+            'node_3': state.node_3_status,
+            'node_5': state.node_5_status,
+            'node_8': state.node_8_status
+        }
